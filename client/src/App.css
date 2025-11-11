@@ -1,38 +1,169 @@
-.App {
+.AppContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #e2e8f0;
+  font-family: Arial, sans-serif;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  transition: background-color 0.5s ease; /* transición suave al cambiar fondo */
+}
+
+.StartScreen {
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.NameInput {
+  font-size: 1.2rem;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  margin-right: 10px;
+  user-select: text;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.JoinButton {
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background-color: #3b82f6;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.JoinButton:hover {
+  background-color: #2563eb;
+}
+
+/* 🔹 LAYOUT PRINCIPAL DEL JUEGO */
+.GameLayout {
+  display: flex;
+  justify-content: space-between;
+  width: 80%;
+  height: 80%;
+  gap: 40px;
+}
+
+/* PANEL IZQUIERDO */
+.LeftPanel {
+  flex: 5;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  border-right: 2px solid #334155;
 }
 
-.App-link {
-  color: #61dafb;
+.CounterTitle {
+  position: fixed;     /* lo hace fijo en la pantalla */
+  top: 20px;           /* distancia desde la parte superior */
+  left: 41%;           /* centrado horizontal */
+  transform: translateX(-50%); /* centrado exacto */
+  font-size: 2rem;
+  color: #e2e8f0;
+  text-shadow: 0 0 10px rgba(226, 232, 240, 0.6);
+  z-index: 100;        /* se asegura que esté por encima de otros elementos */
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+
+.Counter {
+  color: #38bdf8;
+  margin: 20px 0;
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+  font-weight: bold;
+  font-size: clamp(1rem, calc(4rem + var(--level) * 0.3rem), 14rem);
+  transition: font-size 0.2s ease-out, transform 0.2s ease-out;
+}
+
+.Counter.BonusActive {
+  color: #facc15;
+  text-shadow: 0 0 20px #fde047, 0 0 10px #fbbf24;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.Counter.Rebounce {
+  animation: pulse 0.3s ease;
+}
+
+/* PANEL DERECHO */
+.RightPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;       /* mantiene el ranking centrado */
+  justify-content: flex-start;
+  position: relative;        /* necesario para elementos absolute dentro */
+}
+
+.MyScoreRight {
+  position: absolute;       /* solo este elemento es absoluto */
+  top: 0;                   /* altura desde arriba del panel */
+  right: 0;                 /* alineado a la derecha */
+  text-align: right;
+  padding: 10px;
+}
+
+.MyScoreRight h4 {
+  margin: 0 0 5px 0;
+  font-size: 1.1rem;
+  color: #38bdf8;
+}
+
+.Ranking, .RightPanel h3 {
+  margin-top: 180px; /* separa el top 5 del usuario arriba */
+  text-align: center;
+}
+
+/* Ranking sigue centrado */
+.Ranking {
+  list-style: none;
+  padding: 0;
+  font-size: 1.3rem;
+  margin-top: 10px; /* ajusta para que no se superponga con MyScoreRight */
+  text-align: center;
+}
+
+
+.RankingItem {
+  color: #e2e8f0;
+  margin-bottom: 8px;
+}
+
+.RankingItem.BonusWinner {
+  color: #facc15 !important;
+  font-weight: bold;
+}
+
+.RankingItem.MyUser {
+  color: #38bdf8;
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+}
+
+/* BONUS BUTTON */
+.BonusButton {
+  position: absolute;
+  background-color: #facc15;
+  border: 2px solid #eab308;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  padding: 12px 20px;
+  cursor: pointer;
+  color: #000;
+  box-shadow: 0 0 20px #fde047;
+  transition: transform 0.1s;
+}
+
+.BonusButton:hover {
+  transform: scale(1.1);
 }

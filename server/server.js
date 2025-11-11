@@ -56,7 +56,7 @@ function startBonusCycle() {
 startBonusCycle(); // Llamamos a la función por primera vez al arrancar el servidor
 
 /**
- * Manejamos los eventos de conexión de los clientes
+ * Manejamos los eventos de conexión de los clientes (se ejecuta cada vez que un cliente se conecta)
  */
 wss.on("connection", (ws) => {
   console.log("🟢 Nuevo cliente conectado");

@@ -1,26 +1,22 @@
 import { useState, useEffect } from "react";
+import "./App.css";
 
 function App() {
-  // -------------------------------
-  // VARIABLES DE ESTADO (React)
-  // -------------------------------
-  const [socket, setSocket] = useState(null);    // conexión con el servidor
-  const [connected, setConnected] = useState(false); 
-  const [username, setUsername] = useState("");  // nombre del jugador
-  const [joined, setJoined] = useState(false);   // si ya ha entrado al juego
-
-  const [count, setCount] = useState(0);         // contador global
-  const [scores, setScores] = useState({});      // puntuaciones de todos
-
-  const [bonusVisible, setBonusVisible] = useState(false);  // botón dorado
-  const [bonusWinner, setBonusWinner] = useState(null);     // quién tiene bonus
-  const [bonusMultiplier, setBonusMultiplier] = useState(null); // valor x5
-
+  const [socket, setSocket] = useState(null);
+  const [connected, setConnected] = useState(false);
+  const [username, setUsername] = useState("");
+  const [joined, setJoined] = useState(false);
+  const [count, setCount] = useState(0);
+  const [scores, setScores] = useState({});
+  const [bonusVisible, setBonusVisible] = useState(false);
+  const [bonusWinner, setBonusWinner] = useState(null);
+  const [bonusMultiplier, setBonusMultiplier] = useState(null);
   const [bonusPosition, setBonusPosition] = useState({ top: "50%", left: "50%" });
 
-  // -------------------------------------
-  // 1️⃣ Conectarse al servidor WebSocket
-  // -------------------------------------
+  // 🔹 Estado para el color de fondo de toda la página
+  const [bgColor, setBgColor] = useState("#0f172a");
+
+  // 🔌 WebSocket
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:8080");
     setSocket(ws);
@@ -30,25 +26,14 @@ function App() {
       console.log("✅ Conectado al servidor WS");
     };
 
-    // -------------------------------------
-    // 2️⃣ Recibir mensajes del servidor
-    // -------------------------------------
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-
-      // Estado inicial cuando te unes
       if (data.type === "init") {
         setCount(data.value);
         setScores(data.scores);
       }
-
-      // Actualización del contador global
       if (data.type === "update") setCount(data.value);
-
-      // Actualización del ranking
       if (data.type === "updateScores") setScores(data.scores);
-
-      // Evento: aparece el botón dorado
       if (data.type === "bonusStart") {
         const pos = {
           top: Math.floor(Math.random() * 70 + 10) + "%",
@@ -58,15 +43,11 @@ function App() {
         setBonusVisible(true);
         setBonusWinner(null);
       }
-
-      // Evento: alguien gana el bonus
       if (data.type === "bonusAward") {
         setBonusVisible(false);
         setBonusWinner(data.winner);
         setBonusMultiplier(data.multiplier);
       }
-
-      // Evento: el bonus termina
       if (data.type === "bonusEnd") {
         setBonusVisible(false);
         setBonusWinner(null);
@@ -82,9 +63,7 @@ function App() {
     return () => ws.close();
   }, []);
 
-  // -------------------------------------
-  // 3️⃣ Funciones que envían mensajes
-  // -------------------------------------
+  // 🎮 Funciones
   const joinGame = () => {
     if (socket && username.trim()) {
       socket.send(JSON.stringify({ type: "join", username }));
@@ -104,118 +83,97 @@ function App() {
     }
   };
 
-  // Ordenamos las puntuaciones de mayor a menor para el ranking
+  // 🏆 Ranking ordenado
   const sortedScores = Object.entries(scores)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // -------------------------------------
-  // 4️⃣ Interfaz gráfica
-  // -------------------------------------
+  // 🔹 Lógica de rebote del contador
+  const level = Math.floor(count / 10); // cada 10 clicks sube un nivel
+  const MAX_LEVEL = 26; // corresponde al tamaño máximo 12rem
+  const relativeLevel = level % (MAX_LEVEL + 1); // vuelve a 0 al superar el máximo
+
+  // 🔹 Cambiar color de fondo de toda la página al rebote
+  useEffect(() => {
+    if (relativeLevel === 0 && count !== 0) {
+      const colors = ["#f87171", "#facc15", "#f472b6", "#34d399", "#60a5fa"];
+      setBgColor(colors[Math.floor(Math.random() * colors.length)]);
+    }
+  }, [relativeLevel, count]);
+
+  // 🎨 UI
   return (
     <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        backgroundColor: "#0f172a",
-        color: "#e2e8f0",
-        fontFamily: "Arial, sans-serif",
-        position: "relative",
-        overflow: "hidden",
-      }}
+      className="AppContainer"
+      onClick={handleClick}
+      style={{ backgroundColor: bgColor, transition: "background-color 0.5s ease" }}
     >
-      {/* PANTALLA DE INICIO */}
       {!joined ? (
-        <div>
+        <div className="StartScreen">
           <h1>🏁 ¡Bienvenido a ClickBattle!</h1>
           <input
+            className="NameInput"
             placeholder="Tu nombre..."
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            style={{
-              fontSize: "1.2rem",
-              padding: "10px",
-              borderRadius: "8px",
-              border: "none",
-              marginRight: "10px",
-            }}
           />
-          <button
-            onClick={joinGame}
-            style={{
-              fontSize: "1.2rem",
-              padding: "10px 20px",
-              borderRadius: "8px",
-              border: "none",
-              backgroundColor: "#3b82f6",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
+          <button className="JoinButton" onClick={joinGame}>
             Entrar
           </button>
         </div>
       ) : (
         <>
-          {/* PANTALLA PRINCIPAL DEL JUEGO */}
-          <h1>🌍 Contador Global</h1>
-          <h2 style={{ fontSize: "4rem", margin: "20px 0" }}>{count}</h2>
+          <div className="GameLayout">
+            {/* PANEL IZQUIERDO */}
+            <div className="LeftPanel">
+              <h1 className="CounterTitle">🌍 Contador Global</h1>
+              <h2
+                className={`Counter ${username === bonusWinner ? "BonusActive" : ""} ${
+                  relativeLevel === 0 ? "Rebounce" : ""
+                }`}
 
-          <button
-            onClick={handleClick}
-            style={{
-              fontSize: "1.5rem",
-              padding: "15px 30px",
-              borderRadius: "10px",
-              border: "none",
-              cursor: "pointer",
-              backgroundColor:
-                bonusWinner === username ? "#facc15" : "#3b82f6",
-              color: "black",
-              transition: "0.2s",
-            }}
-          >
-            {bonusWinner === username
-              ? `+1 (x${bonusMultiplier})`
-              : "+1"}
-          </button>
-
-          {/* RANKING */}
-          <h3 style={{ marginTop: "40px" }}>🏆 Top 5 jugadores</h3>
-          <ul style={{ listStyle: "none", padding: 0, fontSize: "1.2rem" }}>
-            {sortedScores.map(([user, points], i) => (
-              <li
-                key={user}
-                style={{
-                  fontWeight: bonusWinner === user ? "bold" : "normal",
-                  color: bonusWinner === user ? "#facc15" : "#e2e8f0",
-                }}
+                style={{ "--level": relativeLevel }}
               >
-                {i + 1}. {user}: {points}
-              </li>
-            ))}
-          </ul>
+                {count}
+              </h2>
+            </div>
 
-          {/* BOTÓN DORADO DEL BONUS */}
+            {/* PANEL DERECHO */}
+            <div className="RightPanel">
+              {/* Usuario propio arriba a la derecha */}
+              {username && scores[username] !== undefined && (
+                <div className="MyScoreRight">
+                  <h4>👤 {username}: {scores[username]}</h4>
+                </div>
+              )}
+
+              {/* Top 5 jugadores */}
+              <h3>🏆 Top 5 jugadores</h3>
+              <ul className="Ranking">
+                {sortedScores.map(([user, points], i) => (
+                  <li
+                    key={user}
+                    className={`RankingItem ${
+                      bonusWinner === user ? "BonusWinner" : ""
+                    } ${user === username ? "MyUser" : ""}`}
+                  >
+                    {i + 1}. {user}: {points}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+          </div>
+
+          {/* BONUS BUTTON */}
           {bonusVisible && (
             <button
-              onClick={handleBonusClick}
+              className="BonusButton"
               style={{
-                position: "absolute",
                 top: bonusPosition.top,
                 left: bonusPosition.left,
-                backgroundColor: "#facc15",
-                border: "2px solid #eab308",
-                borderRadius: "12px",
-                fontSize: "1.2rem",
-                padding: "12px 20px",
-                cursor: "pointer",
-                color: "#000",
-                boxShadow: "0 0 20px #fde047",
               }}
+              onClick={handleBonusClick}
             >
               💥 ¡BONUS!
             </button>
