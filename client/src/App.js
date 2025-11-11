@@ -20,6 +20,8 @@ function App() {
   const [hits, setHits] = useState([]);
   const [lastClickTime, setLastClickTime] = useState(0);
   const [warning, setWarning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [gameOver, setGameOver] = useState(false);
 
   // 🔌 WebSocket
   useEffect(() => {
@@ -58,6 +60,22 @@ function App() {
         setBonusWinner(null);
         setBonusMultiplier(null);
       }
+      if (data.type === "timeUpdate"){
+        setTimeLeft(data.timeLeft);
+      }
+      if (data.type === "gameOver") {
+        setGameOver(true);
+      }
+      if (data.type === "reset"){
+          setCount(0);
+          setScores({});
+          setBonusVisible(false);
+          setBonusWinner(null);
+          setBonusMultiplier(null);
+          setTimeLeft(60); // 5 minutos
+          setGameOver(false);
+          setBgColor("#0f172a");
+      }
     };
 
     ws.onclose = () => {
@@ -67,6 +85,24 @@ function App() {
 
     return () => ws.close();
   }, []);
+
+  // useEffect del temporizador
+  useEffect(() => {
+    if (!joined || gameOver) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setGameOver(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [joined, gameOver]);
 
   // 🎮 Funciones
   const joinGame = () => {
@@ -78,6 +114,7 @@ function App() {
 
   // ✨ Función de clic con animación + detector de autoclick
   const handleClick = () => {
+    if (!joined || !connected || gameOver) return;
     if (socket && connected && joined) {
       const now = Date.now();
       const diff = now - lastClickTime;
@@ -129,7 +166,7 @@ function App() {
   // 🔹 Cambiar color de fondo de toda la página al rebote
   useEffect(() => {
     if (relativeLevel === 0 && count !== 0) {
-      const colors = ["#f87171", "#facc15", "#f472b6", "#34d399", "#60a5fa"];
+      const colors = ["#f87171", "#15fa9eff", "#f472b6", "#f149f7ff", "#a0fa60ff"];
       setBgColor(colors[Math.floor(Math.random() * colors.length)]);
     }
   }, [relativeLevel, count]);
@@ -156,50 +193,78 @@ function App() {
         </div>
       ) : (
         <>
-          <div className="GameLayout">
-            {/* PANEL IZQUIERDO */}
-            <div className="LeftPanel">
-              <h1 className="CounterTitle">🌍 Contador Global</h1>
-              <h2
-                className={`Counter ${username === bonusWinner ? "BonusActive" : ""} ${
-                  relativeLevel === 0 ? "Rebounce" : ""
-                }`}
-                style={{ "--level": relativeLevel }}
-              >
-                {count}
-              </h2>
+          {/* TEMPORIZADOR */}
+          {!gameOver && (
+            <div className="Timer">
+              ⏱ {Math.floor(timeLeft / 60).toString().padStart(2, "0")}:
+              {(timeLeft % 60).toString().padStart(2, "0")}
             </div>
+          )}
 
-            {/* PANEL DERECHO */}
-            <div className="RightPanel">
-              {/* Usuario propio arriba a la derecha */}
-              {username && scores[username] !== undefined && (
-                <div className="MyScoreRight">
-                  <h4>
-                    👤 {username}: {scores[username]}
-                  </h4>
-                </div>
-              )}
-
-              {/* Top 5 jugadores */}
-              <h3>🏆 Top 5 jugadores</h3>
+          {/* OVERLAY FIN DE JUEGO */}
+          {gameOver && (
+            <div className="GameOverOverlay">
+              <h1>⏱ ¡Tiempo terminado!</h1>
+              <h2>🏆 Ranking final</h2>
               <ul className="Ranking">
-                {sortedScores.map(([user, points], i) => (
-                  <li
-                    key={user}
-                    className={`RankingItem ${
-                      bonusWinner === user ? "BonusWinner" : ""
-                    } ${user === username ? "MyUser" : ""}`}
-                  >
-                    {i + 1}. {user}: {points}
-                  </li>
-                ))}
+                {Object.entries(scores)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([user, points], i) => (
+                    <li key={user} className={user === username ? "MyUser" : ""}>
+                      {i + 1}. {user}: {points}
+                    </li>
+                  ))}
               </ul>
             </div>
-          </div>
+          )}
+
+          {/* LAYOUT PRINCIPAL DEL JUEGO */}
+          {!gameOver && (
+            <div className="GameLayout">
+              {/* PANEL IZQUIERDO */}
+              <div className="LeftPanel">
+                <h1 className="CounterTitle">🌍 Contador Global</h1>
+                <h2
+                  className={`Counter ${username === bonusWinner ? "BonusActive" : ""} ${
+                    relativeLevel === 0 ? "Rebounce" : ""
+                  }`}
+                  style={{ "--level": relativeLevel }}
+                >
+                  {count}
+                </h2>
+              </div>
+
+              {/* PANEL DERECHO */}
+              <div className="RightPanel">
+                {/* Usuario propio arriba a la derecha */}
+                {username && scores[username] !== undefined && (
+                  <div className="MyScoreRight">
+                    <h4>
+                      👤 {username}: {scores[username]}
+                    </h4>
+                  </div>
+                )}
+
+                {/* Top 5 jugadores */}
+                <h3>🏆 Top 5 jugadores</h3>
+                <ul className="Ranking">
+                  {sortedScores.map(([user, points], i) => (
+                    <li
+                      key={user}
+                      className={`RankingItem ${
+                        bonusWinner === user ? "BonusWinner" : ""
+                      } ${user === username ? "MyUser" : ""}`}
+                    >
+                      {i + 1}. {user}: {points}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
 
           {/* BONUS BUTTON */}
-          {bonusVisible && (
+          {bonusVisible && !gameOver && (
             <button
               className="BonusButton"
               style={{
@@ -220,23 +285,26 @@ function App() {
           )}
 
           {/* 💥 Animaciones de clic (hitmarkers) */}
-          {hits.map((hit) => (
-            <div
-              key={hit.id}
-              className="Hitmarker"
-              style={{
-                top: `${hit.y}%`,
-                left: `${hit.x}%`,
-                color: hit.color,
-              }}
-            >
-              {hit.text}
-            </div>
-          ))}
+          {!gameOver &&
+            hits.map((hit) => (
+              <div
+                key={hit.id}
+                className="Hitmarker"
+                style={{
+                  top: `${hit.y}%`,
+                  left: `${hit.x}%`,
+                  color: hit.color,
+                }}
+              >
+                {hit.text}
+              </div>
+            ))}
         </>
       )}
     </div>
   );
+
+
 }
 
 export default App;

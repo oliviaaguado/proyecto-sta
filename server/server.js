@@ -13,8 +13,14 @@ let scores = {};           // Puntuaciones por usuario (ej: {Carlos: 10, Lucía:
 let bonusActive = false;   // Indica si el botón de bonus está visible
 let bonusOwner = null;     // Usuario que tiene el bonus activo
 let bonusTimer = null;     // Temporizador interno del bonus
+let gameTime = 60;        // 5 minutos de juego
+let gameInterval = null;   // Temporizador principal del juego
+let gameStarted = false;   // Estado de la partida
+let gameOver = false;
+let gameTimer = null;
 
 console.log(`🚀 Servidor WebSocket escuchando en ws://localhost:${PORT}`);
+
 
 // Esta función envía un mensaje a TODOS los clientes conectados
 function broadcast(data) {
@@ -25,6 +31,33 @@ function broadcast(data) {
     }
   });
 }
+
+// Función para iniciar el juego
+function startGame() {
+  if (gameStarted) return; // ya iniciado
+  gameStarted = true;
+
+  gameInterval = setInterval(() => {
+    gameTime--;
+
+    broadcast({ type: "timeUpdate", timeLeft: gameTime });
+
+    if (gameTime <= 0) {
+      clearInterval(gameInterval);
+      broadcast({ type: "gameOver", scores });
+      console.log("Tiempo acabado, juego terminado");
+
+      gameStarted = false;
+      // Reinicio opcional de bonus y contador
+      counter = 0;
+      bonusActive = false;
+      bonusOwner = null;
+    }
+  }, 1000);
+
+  console.log("Partida iniciada");
+}
+
 
 /**
  * Función que crea un nuevo bonus aleatorio cada 30–60 segundos
@@ -62,6 +95,18 @@ wss.on("connection", (ws) => {
   console.log("🟢 Nuevo cliente conectado");
   let username = null; // Nombre del usuario que se conecte
 
+  // Bloque de reinicio
+  if (gameStarted === false && gameTime <= 0) {
+    console.log("🔄 Reiniciando juego por nueva conexión tras gameOver");
+    counter = 0;
+    scores = {};
+    bonusActive = false;
+    bonusOwner = null;
+    clearTimeout(bonusTimer);
+    gameTime = 60;   // 5 minutos
+    gameStarted = false;
+    broadcast({ type: "reset" });
+  }
   /**
    * Cuando el cliente envía un mensaje al servidor
    */
@@ -79,6 +124,11 @@ wss.on("connection", (ws) => {
       // Avisamos a todos de que hay nuevas puntuaciones
       broadcast({ type: "updateScores", scores });
       console.log(`👤 ${username} se ha unido`);
+
+      // Iniciar la partida
+      if (!gameStarted){
+        startGame();
+      }
     }
 
     // --- 2️⃣ El usuario hace clic en +1 ---
