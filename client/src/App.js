@@ -16,6 +16,11 @@ function App() {
   // 🔹 Estado para el color de fondo de toda la página
   const [bgColor, setBgColor] = useState("#0f172a");
 
+  // 💥 Estados nuevos (animaciones y antitrampas)
+  const [hits, setHits] = useState([]);
+  const [lastClickTime, setLastClickTime] = useState(0);
+  const [warning, setWarning] = useState(false);
+
   // 🔌 WebSocket
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:8080");
@@ -71,9 +76,37 @@ function App() {
     }
   };
 
+  // ✨ Función de clic con animación + detector de autoclick
   const handleClick = () => {
     if (socket && connected && joined) {
+      const now = Date.now();
+      const diff = now - lastClickTime;
+      setLastClickTime(now);
+
+      // 🚨 Detección de autoclick (clics <150ms)
+      if (diff < 50) {
+        setWarning(true);
+        setTimeout(() => setWarning(false), 2000);
+        return; // No contar el clic
+      }
+
       socket.send(JSON.stringify({ type: "increment" }));
+
+      // 💥 Crear animación "hitmarker"
+      const newHit = {
+        id: Date.now(),
+        x: Math.random() * 60 + 20,
+        y: Math.random() * 60 + 20,
+        text: bonusWinner === username ? "+5" : "+1",
+        color: bonusWinner === username ? "#fde047" : "#facc15",
+      };
+
+      setHits((prev) => [...prev, newHit]);
+
+      // Eliminar después de 1 segundo
+      setTimeout(() => {
+        setHits((prev) => prev.filter((h) => h.id !== newHit.id));
+      }, 1000);
     }
   };
 
@@ -131,7 +164,6 @@ function App() {
                 className={`Counter ${username === bonusWinner ? "BonusActive" : ""} ${
                   relativeLevel === 0 ? "Rebounce" : ""
                 }`}
-
                 style={{ "--level": relativeLevel }}
               >
                 {count}
@@ -143,7 +175,9 @@ function App() {
               {/* Usuario propio arriba a la derecha */}
               {username && scores[username] !== undefined && (
                 <div className="MyScoreRight">
-                  <h4>👤 {username}: {scores[username]}</h4>
+                  <h4>
+                    👤 {username}: {scores[username]}
+                  </h4>
                 </div>
               )}
 
@@ -162,7 +196,6 @@ function App() {
                 ))}
               </ul>
             </div>
-
           </div>
 
           {/* BONUS BUTTON */}
@@ -178,6 +211,28 @@ function App() {
               💥 ¡BONUS!
             </button>
           )}
+
+          {/* 🚨 Aviso antitrampas */}
+          {warning && (
+            <div className="AntiCheatWarning">
+              🚨 DEJA DE HACER TRAMPAS PAYASO 🚨
+            </div>
+          )}
+
+          {/* 💥 Animaciones de clic (hitmarkers) */}
+          {hits.map((hit) => (
+            <div
+              key={hit.id}
+              className="Hitmarker"
+              style={{
+                top: `${hit.y}%`,
+                left: `${hit.x}%`,
+                color: hit.color,
+              }}
+            >
+              {hit.text}
+            </div>
+          ))}
         </>
       )}
     </div>

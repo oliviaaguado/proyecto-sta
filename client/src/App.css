@@ -167,3 +167,54 @@
 .BonusButton:hover {
   transform: scale(1.1);
 }
+/* Animación de los hitmarkers */
+.Hitmarker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  font-weight: bold;
+  opacity: 1;
+  animation: pop 0.8s ease-out forwards;
+  pointer-events: none;
+  text-shadow: 0 0 15px rgba(255, 255, 0, 0.8);
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.8) translate(-50%, -50%);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1.4) translate(-50%, -60%);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5) translate(-50%, -80%);
+    opacity: 0;
+  }
+}
+
+/* Aviso antitrampas */
+.AntiCheatWarning {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: red;
+  padding: 15px 25px;
+  border-radius: 10px;
+  color: white;
+  font-weight: bold;
+  font-size: 1.2rem;
+  box-shadow: 0 0 20px #ef4444;
+  animation: shake 0.5s;
+}
+
+@keyframes shake {
+  0% { transform: translate(-50%, 0); }
+  25% { transform: translate(-45%, 0); }
+  50% { transform: translate(-55%, 0); }
+  75% { transform: translate(-45%, 0); }
+  100% { transform: translate(-50%, 0); }
+}
+
