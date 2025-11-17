@@ -1,46 +1,60 @@
+// app.js --> frontend
+// useState --> añade estado a un componente (al cambiar el estado se vuelve a renderizar)
+// useEffect --> maneja efectos secundarios (peticiones, timers...), se ejecuta tras el render
 import { useState, useEffect } from "react";
 import "./App.css";
 
 function App() {
-  const [socket, setSocket] = useState(null);
-  const [connected, setConnected] = useState(false);
-  const [username, setUsername] = useState("");
-  const [joined, setJoined] = useState(false);
-  const [count, setCount] = useState(0);
-  const [scores, setScores] = useState({});
-  const [bonusVisible, setBonusVisible] = useState(false);
-  const [bonusWinner, setBonusWinner] = useState(null);
-  const [bonusMultiplier, setBonusMultiplier] = useState(null);
-  const [bonusPosition, setBonusPosition] = useState({ top: "50%", left: "50%" });
+  // Estados que se recuerdan entre renderizados
+  // socket: variable de estado, guarda el valor actual
+  // setSocket: función para actualizar el valor de la variable de estado (cada vez que se llama, se vuelve a renderizar el componente)
+  const [socket, setSocket] = useState(null); // WebSocket
+  const [connected, setConnected] = useState(false); // Estado de conexión
+  const [username, setUsername] = useState(""); // Nombre de usuario
+  const [joined, setJoined] = useState(false); // Estado de unión al juego
+  const [count, setCount] = useState(0); // Contador de clicks
+  const [scores, setScores] = useState({}); // Puntuaciones de los jugadores
+  const [bonusVisible, setBonusVisible] = useState(false); // Visibilidad del bonus
+  const [bonusWinner, setBonusWinner] = useState(null); // Ganador del bonus
+  const [bonusMultiplier, setBonusMultiplier] = useState(null); // Multiplicador del bonus
+  const [bonusPosition, setBonusPosition] = useState({ top: "50%", left: "50%" }); // Posición aleatoria del bonus
 
-  // 🔹 Estado para el color de fondo de toda la página
+  // Estado para el color de fondo de toda la página
   const [bgColor, setBgColor] = useState("#0f172a");
 
-  // 💥 Estados nuevos (animaciones y antitrampas)
-  const [hits, setHits] = useState([]);
-  const [lastClickTime, setLastClickTime] = useState(0);
-  const [warning, setWarning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [gameOver, setGameOver] = useState(false);
+  // Estados nuevos (animaciones y antitrampas)
+  const [hits, setHits] = useState([]); // Lista de animaciones de clics (+1, +5)
+  const [lastClickTime, setLastClickTime] = useState(0);  // Para detectar autoclicks
+  const [warning, setWarning] = useState(false);  // Muestra un mensaje si se hace trampas
+  const [timeLeft, setTimeLeft] = useState(60); // Tiempo restante de la partida
+  const [gameOver, setGameOver] = useState(false); // Estado de fin de juego
 
-  // 🔌 WebSocket
+  //Crear conexión WebSocket al servidor cuando la app carga
   useEffect(() => {
+    // Crear nuevo socket y almacenarlo en el estado
     const ws = new WebSocket("ws://localhost:8080");
     setSocket(ws);
 
+    // Cuando se abre la conexión cambia el estado a conectado
     ws.onopen = () => {
       setConnected(true);
       console.log("✅ Conectado al servidor WS");
     };
 
+    // Cuando llega un mensaje
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      const data = JSON.parse(event.data); // Convertimos el texto JSON a objeto
+      
+      // Si el mensaje es de tipo 'init', recibimos el estado inicial del juego y actualizamos los estados
       if (data.type === "init") {
         setCount(data.value);
         setScores(data.scores);
       }
+      // Actualizamos el contador
       if (data.type === "update") setCount(data.value);
+      // Actualizamos el ranking
       if (data.type === "updateScores") setScores(data.scores);
+      // Cuando empieza el bonus
       if (data.type === "bonusStart") {
         const pos = {
           top: Math.floor(Math.random() * 70 + 10) + "%",
@@ -84,12 +98,14 @@ function App() {
     };
 
     return () => ws.close();
-  }, []);
+  }, []); // Array de dependencias vacío: se ejecuta solo al montar el componente
 
   // useEffect del temporizador
   useEffect(() => {
+    // Solo se activa si el usuario se ha unido y el juego no ha terminado
     if (!joined || gameOver) return;
 
+    // Cada segundo se reduce el tiempo y si llega a 0 se termina el juego
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -102,9 +118,9 @@ function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [joined, gameOver]);
+  }, [joined, gameOver]); // Se ejecuta cada vez que 'joined' o 'gameOver' cambien
 
-  // 🎮 Funciones
+  // Se envía el nombre de usuario al servidor para unirse al juego
   const joinGame = () => {
     if (socket && username.trim()) {
       socket.send(JSON.stringify({ type: "join", username }));
@@ -112,7 +128,7 @@ function App() {
     }
   };
 
-  // ✨ Función de clic con animación + detector de autoclick
+  // Función de clic con animación + detector de autoclick
   const handleClick = () => {
     if (!joined || !connected || gameOver) return;
     if (socket && connected && joined) {
@@ -129,7 +145,7 @@ function App() {
 
       socket.send(JSON.stringify({ type: "increment" }));
 
-      // 💥 Crear animación "hitmarker"
+      // Crear animación +1 o +5
       const newHit = {
         id: Date.now(),
         x: Math.random() * 60 + 20,
@@ -147,23 +163,24 @@ function App() {
     }
   };
 
+  // Función para reclamar el bonus
   const handleBonusClick = () => {
     if (socket && connected) {
       socket.send(JSON.stringify({ type: "bonusClaim" }));
     }
   };
 
-  // 🏆 Ranking ordenado
+  //  Ranking ordenado
   const sortedScores = Object.entries(scores)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // 🔹 Lógica de rebote del contador
+  // Lógica de rebote del contador
   const level = Math.floor(count / 10); // cada 10 clicks sube un nivel
-  const MAX_LEVEL = 26; // corresponde al tamaño máximo 12rem
+  const MAX_LEVEL = 26; 
   const relativeLevel = level % (MAX_LEVEL + 1); // vuelve a 0 al superar el máximo
 
-  // 🔹 Cambiar color de fondo de toda la página al rebote
+  // Cambiar color de fondo de toda la página al rebote
   useEffect(() => {
     if (relativeLevel === 0 && count !== 0) {
       const colors = ["#f87171", "#15fa9eff", "#f472b6", "#f149f7ff", "#a0fa60ff"];

@@ -1,3 +1,5 @@
+// server.js --> backend
+
 // Importamos la librería 'ws' que nos permite crear un servidor WebSocket
 import { WebSocketServer } from "ws";
 
@@ -13,16 +15,18 @@ let scores = {};           // Puntuaciones por usuario (ej: {Carlos: 10, Lucía:
 let bonusActive = false;   // Indica si el botón de bonus está visible
 let bonusOwner = null;     // Usuario que tiene el bonus activo
 let bonusTimer = null;     // Temporizador interno del bonus
-let gameTime = 60;        // 5 minutos de juego
-let gameInterval = null;   // Temporizador principal del juego
+let gameTime = 60;         // 5 minutos de juego (1 min para pruebas)
+let gameInterval = null;   // Temporizador principal del juego (controla la cuenta atrás)
 let gameStarted = false;   // Estado de la partida
-let gameOver = false;
+let gameOver = false;      // Indica si el juego ha terminado
 let gameTimer = null;
+
 
 console.log(`🚀 Servidor WebSocket escuchando en ws://localhost:${PORT}`);
 
 
-// Esta función envía un mensaje a TODOS los clientes conectados
+// Esta función envía un mensaje a TODOS los jugadores conectados
+// Recibe un objeto JS, lo convierte a JSON y lo envía a cada jugador
 function broadcast(data) {
   const msg = JSON.stringify(data); // Convertimos el objeto JS a texto JSON
   wss.clients.forEach((client) => {
@@ -37,23 +41,26 @@ function startGame() {
   if (gameStarted) return; // ya iniciado
   gameStarted = true;
 
+  // setInterval --> repetimos la función cada cierto tiempo (1000 ms = 1 segundo)
+  // en gameInterval se guarda el ID del intervalo para poder pararlo luego con clearInterval
   gameInterval = setInterval(() => {
-    gameTime--;
+    gameTime--; // Cada segundo se reduce el tiempo
 
-    broadcast({ type: "timeUpdate", timeLeft: gameTime });
+    broadcast({ type: "timeUpdate", timeLeft: gameTime });  // Se envía el tiempo restante a los jugadores
 
-    if (gameTime <= 0) {
+    if (gameTime <= 0) {  // Cuando se acaba el tiempo
+      // Se detiene el intervalo
       clearInterval(gameInterval);
+      // Se envían las puntuaciones finales a todos los jugadores
       broadcast({ type: "gameOver", scores });
       console.log("Tiempo acabado, juego terminado");
-
+      // Reiniciamos variables para la próxima partida
       gameStarted = false;
-      // Reinicio opcional de bonus y contador
       counter = 0;
       bonusActive = false;
       bonusOwner = null;
     }
-  }, 1000);
+  }, 1000);   // 1000 ms = 1 segundo
 
   console.log("Partida iniciada");
 }
@@ -67,18 +74,19 @@ function startGame() {
 function startBonusCycle() {
   const nextIn = Math.floor(Math.random() * 30000) + 30000; // tiempo aleatorio entre 30 y 60 s
 
+  // Función que se ejecuta tras el tiempo aleatorio
   setTimeout(() => {
-    if (!bonusActive) {
+    if (!bonusActive) { // Para evitar superponer 2 bonuses al mismo tiempo
       bonusActive = true;
       bonusOwner = null;
       console.log("💥 Nuevo bonus disponible!");
-      broadcast({ type: "bonusStart" }); // avisamos a todos los clientes
+      broadcast({ type: "bonusStart" }); // avisamos a todos los jugadores
 
-      // Si en 10 segundos nadie lo pulsa, desaparece
+      // Temporizador de 10 segundos para que el bonus expire si nadie lo reclama
       bonusTimer = setTimeout(() => {
         if (bonusActive) {
-          bonusActive = false;
-          broadcast({ type: "bonusEnd" });
+          bonusActive = false;  // el bonus ya no está disponible
+          broadcast({ type: "bonusEnd" });  // avisamos a todos que el bonus ha expirado
           console.log("⏰ Bonus expirado (nadie lo reclamó)");
         }
         startBonusCycle(); // se prepara el siguiente bonus
@@ -88,14 +96,14 @@ function startBonusCycle() {
 }
 startBonusCycle(); // Llamamos a la función por primera vez al arrancar el servidor
 
-/**
- * Manejamos los eventos de conexión de los clientes (se ejecuta cada vez que un cliente se conecta)
- */
+
+// Manejamos los eventos de conexión de los clientes (se ejecuta cada vez que un cliente se conecta)
+// wss representa una conexión individual
 wss.on("connection", (ws) => {
   console.log("🟢 Nuevo cliente conectado");
   let username = null; // Nombre del usuario que se conecte
 
-  // Bloque de reinicio
+  // Bloque de reinicio tras GameOver
   if (gameStarted === false && gameTime <= 0) {
     console.log("🔄 Reiniciando juego por nueva conexión tras gameOver");
     counter = 0;
@@ -107,16 +115,16 @@ wss.on("connection", (ws) => {
     gameStarted = false;
     broadcast({ type: "reset" });
   }
-  /**
-   * Cuando el cliente envía un mensaje al servidor
-   */
+
+  // Cuando el cliente envía un mensaje al servidor
+
   ws.on("message", (msg) => {
     const data = JSON.parse(msg); // Convertimos el texto JSON a objeto
 
-    // --- 1️⃣ El usuario se une al juego ---
+    // El usuario se une al juego 
     if (data.type === "join") {
       username = data.username || "Anon-" + Math.floor(Math.random() * 1000);
-      scores[username] = scores[username] || 0;
+      scores[username] = scores[username] || 0; // Si es nuevo su puntuación es 0
 
       // Enviamos al usuario el estado inicial del juego
       ws.send(JSON.stringify({ type: "init", value: counter, scores }));
@@ -125,13 +133,13 @@ wss.on("connection", (ws) => {
       broadcast({ type: "updateScores", scores });
       console.log(`👤 ${username} se ha unido`);
 
-      // Iniciar la partida
+      // Iniciar la partida si aún no ha comenzado
       if (!gameStarted){
         startGame();
       }
     }
 
-    // --- 2️⃣ El usuario hace clic en +1 ---
+    // El usuario hace clic 
     if (data.type === "increment" && username) {
       // Si el usuario tiene bonus, su clic vale x5
       const mult = username === bonusOwner ? 5 : 1;
@@ -146,7 +154,7 @@ wss.on("connection", (ws) => {
       console.log(`🔼 ${username} (+${mult}) total=${scores[username]}`);
     }
 
-    // --- 3️⃣ El usuario intenta reclamar el bonus ---
+    //  El usuario intenta reclamar el bonus 
     if (data.type === "bonusClaim" && bonusActive && !bonusOwner) {
       bonusOwner = username;    // este usuario gana el bonus
       bonusActive = false;      // ya no está disponible
